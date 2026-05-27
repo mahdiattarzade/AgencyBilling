@@ -18,8 +18,8 @@ Database: SQLite (Local storage)
 🚀 Getting Started
 Clone the repository:
 bash
-   git clone <>
-   cd toop-aks\app
+   git clone <https://github.com/mahdiattarzade/AgencyBilling.git>
+   cd toop-aks
 Install dependencies:
 bash
    npm install
