@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "Toop Aks",
+    "icon": "./assets/images/icon.png",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "extra": {
+      "eas": {
+        "projectId": "b5c3182b-61aa-4e94-ab51-4e9e467200b3"
+      }
+    },
+    "android": {
+      "package": "com.amirattar.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#FFFFFF"
+      }
+    },
+    "owner": "amirattar"
+  }
+}

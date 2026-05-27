@@ -1,0 +1,25 @@
+warning: in the working copy of 'app.json', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/app.json b/app.json[m
+[1mindex 80f11b8..913a61b 100644[m
+[1m--- a/app.json[m
+[1m+++ b/app.json[m
+[36m@@ -7,7 +7,7 @@[m
+     "userInterfaceStyle": "light",[m
+     "extra": {[m
+       "eas": {[m
+[31m-        "projectId": "8f390266-83a6-429a-8eea-b88dbbbc57f7"[m
+[32m+[m[32m        "projectId": "b5c3182b-61aa-4e94-ab51-4e9e467200b3"[m
+       }[m
+     },[m
+     "android": {[m
+[36m@@ -17,6 +17,7 @@[m
+         "foregroundImage": "./assets/icon.png",[m
+         "backgroundColor": "#FFFFFF"[m
+       }[m
+[31m-    }[m
+[32m+[m[32m    },[m
+[32m+[m[32m    "owner": "amirattar"[m
+   }[m
+[31m-}[m
+\ No newline at end of file[m
+[32m+[m[32m}[m
