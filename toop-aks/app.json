@@ -7,7 +7,7 @@
     "userInterfaceStyle": "light",
     "extra": {
       "eas": {
-        "projectId": "3e3478c7-4c7d-42cb-9870-89ac375df6c6"
+        "projectId": "02ffc10c-026e-4e41-9d25-a20a09ef7858"
       }
     },
     "android": {
@@ -18,7 +18,7 @@
         "backgroundColor": "#FFFFFF"
       }
     },
-    "owner": "amirattar",
+    "owner": "hasanattars-team",
     "plugins": [
       [
         "expo-media-library",
