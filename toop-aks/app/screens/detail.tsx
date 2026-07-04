@@ -150,14 +150,14 @@ export default function EditInvoice() {
     const rawAmount = getRawNumber(serviceForm.amount);
     const rawUnitPrice = getRawNumber(serviceForm.unitPrice);
 
-    if (!rawAmount || isNaN(Number(rawAmount)) || Number(rawAmount) <= 0) {
-      Alert.alert('خطا', 'لطفا تعداد صحیح وارد کنید');
-      return;
-    }
-    if (!rawUnitPrice || isNaN(Number(rawUnitPrice)) || Number(rawUnitPrice) <= 0) {
-      Alert.alert('خطا', 'لطفا قیمت واحد صحیح وارد کنید');
-      return;
-    }
+    // if (!rawAmount || isNaN(Number(rawAmount)) || Number(rawAmount) <= 0) {
+    // Alert.alert('خطا', 'لطفا تعداد صحیح وارد کنید');
+    // return;
+    // }
+    // if (!rawUnitPrice || isNaN(Number(rawUnitPrice)) || Number(rawUnitPrice) <= 0) {
+    // Alert.alert('خطا', 'لطفا قیمت واحد صحیح وارد کنید');
+    // return;
+    // }
 
     try {
       const serviceData = {
@@ -274,10 +274,10 @@ export default function EditInvoice() {
       (service.unit_price || service.unitPrice) <= 0
     );
 
-    if (invalidServices.length > 0) {
-      Alert.alert('خطا', 'لطفا اطلاعات همه سرویس‌ها را کامل و صحیح وارد کنید');
-      return;
-    }
+    // if (invalidServices.length > 0) {
+    // Alert.alert('خطا', 'لطفا اطلاعات همه سرویس‌ها را کامل و صحیح وارد کنید');
+    // return;
+    // }
 
     if (!hasServicesChanged()) {
       Alert.alert('توجه', 'تغییری در سرویس‌ها ایجاد نشده است');
@@ -372,15 +372,15 @@ export default function EditInvoice() {
       if (selectedStatus.action === 'confirm') {
         await UpdatePreInvoiceToInvoice(id);
         Alert.alert('✅ موفقیت', 'پیش‌فاکتور با موفقیت تایید و به فاکتور تبدیل شد');
-        router.replace('/');
+        router.replace('./');
       } else if (selectedStatus.action === 'reject') {
         await RejectPreInvoice(id);
         Alert.alert('✅ موفقیت', 'پیش‌فاکتور با موفقیت رد شد');
-        router.replace('/');
+        router.replace('./');
       } else if (selectedStatus.action === 'pay') {
         await UpdateDocument(id, 'paid');
         Alert.alert('✅ موفقیت', 'فاکتور با موفقیت پرداخت شده');
-        router.replace('/');
+        router.replace('./');
       }
     } catch (error: any) {
       Alert.alert('❌ خطا', error.message || 'خطا در به‌روزرسانی وضعیت');

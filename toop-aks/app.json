@@ -18,6 +18,16 @@
         "backgroundColor": "#FFFFFF"
       }
     },
-    "owner": "amirattar"
+    "owner": "amirattar",
+    "plugins": [
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow Toop Aks to access your photos to save invoices to your gallery.",
+          "savePhotosPermission": "Allow saving photos to your gallery",
+          "isAccessMediaLocation": true
+        }
+      ]
+    ]
   }
 }

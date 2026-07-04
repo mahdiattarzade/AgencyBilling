@@ -226,15 +226,14 @@ export default function AddInvoice() {
     const rawAmount = getRawNumber(serviceForm.amount);
     const rawUnitPrice = getRawNumber(serviceForm.unitPrice);
 
-    if (!rawAmount || isNaN(Number(rawAmount))) {
-      Alert.alert('خطا', 'لطفا مقدار صحیح وارد کنید');
-      return;
-    }
-
-    if (!rawUnitPrice || isNaN(Number(rawUnitPrice))) {
-      Alert.alert('خطا', 'لطفا قیمت واحد صحیح وارد کنید');
-      return;
-    }
+    // if (!rawAmount || isNaN(Number(rawAmount))) {
+    // Alert.alert('خطا', 'لطفا مقدار صحیح وارد کنید');
+    // return;
+    // }
+    // if (!rawUnitPrice || isNaN(Number(rawUnitPrice))) {
+    // Alert.alert('خطا', 'لطفا قیمت واحد صحیح وارد کنید');
+    // return;
+    // }
 
     const newService = {
       id: editingServiceIndex !== null ? services[editingServiceIndex].id : (services.length + 1).toString(),
@@ -276,10 +275,10 @@ export default function AddInvoice() {
       !getRawNumber(service.unitPrice)
     );
 
-    if (invalidServices.length > 0) {
-      Alert.alert('خطا', 'لطفا اطلاعات تمام سرویس‌ها را کامل وارد کنید');
-      return;
-    }
+    // if (invalidServices.length > 0) {
+    // Alert.alert('خطا', 'لطفا اطلاعات تمام سرویس‌ها را کامل وارد کنید');
+    // return;
+    // }
 
     // Prepare services data
     const servicesData = services.map(service => ({
@@ -297,7 +296,6 @@ export default function AddInvoice() {
       notes: formData.notes,
       total: calculateTotal()
     };
-
     try {
       // Save to database
       AddNewInvoice(finalData.customer, finalData.type, action, finalData.date, finalData.services, finalData.notes)
@@ -308,7 +306,7 @@ export default function AddInvoice() {
         [
           {
             text: 'باشه',
-            onPress: () => router.push('/')
+            onPress: () => router.push('./')
           }
         ]
       );
@@ -324,7 +322,7 @@ export default function AddInvoice() {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.push('/')}
+          onPress={() => router.back()}
         >
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
