@@ -3,7 +3,6 @@ import { router, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
 import moment from 'moment-jalaali';
-import 'moment/locale/fa';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { FetchData } from '@/app/database/services/get-data';
 import { I18nManager } from 'react-native';
