@@ -2,18 +2,21 @@ import { Text, View, StyleSheet, TouchableOpacity, Alert, Modal, ScrollView, Act
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
-import { CreateTables } from '@/app/database/init'
-import moment from "moment-jalaali";
+import { CreateTables } from '@/app/database/init';
+// Use moment-jalaali only (it includes moment)
+import moment from 'moment-jalaali';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { FetchData } from '@/app/database/services/get-data';
 import ActionButton from '@/app/components/buttons';
 import { FilterByType } from '@/app/components/buttons';
-// import 'moment/locale/fa';
 import { I18nManager } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage'
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // فعال کردن RTL
 I18nManager.forceRTL(true);
+
+// Initialize moment with Persian locale
+moment.loadPersian({ usePersianDigits: true });
 
 export default function Index() {
 
@@ -96,6 +99,7 @@ export default function Index() {
     // Filter by type
     if (selectedType === 'invoice' && item.document_type !== 'invoice') return false;
     if (selectedType === 'preinvoice' && item.document_type !== 'preinvoice') return false;
+
 
     // Filter by status
     if (selectedStatus !== 'all' && item.status !== selectedStatus) return false;
