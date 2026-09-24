@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Image, View, Text, StyleSheet, ScrollView, I18nManager, Alert, ActivityIndicator, TouchableOpacity, AccessibilityInfo } from 'react-native';
+import { Image, View, Text, StyleSheet, ScrollView, I18nManager, Alert, ActivityIndicator, TouchableOpacity, TextInput, Modal } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,25 +8,33 @@ import ViewShot from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import { useLocalSearchParams } from 'expo-router';
 import { FetchDocument } from '@/app/database/services/get-data';
+import { useFonts } from 'expo-font';
+import * as MediaLibrary from 'expo-media-library';
 
 I18nManager.forceRTL(true);
-
 export default function InvoicePage() {
+  const [fontsLoaded] = useFonts({
+    'Vazirmatn': require('@/app/assets/fonts/Vazirmatn-RD-Medium.ttf')
+  });
   const params = useLocalSearchParams();
   const id = Number(params.id)
   const viewShotRef = useRef<ViewShot>(null);
-  const tableViewShotRef = useRef<ViewShot>(null); // رفرنس جدید برای جدول
-
+  const tableViewShotRef = useRef<ViewShot>(null);
   const [invoice, setInvoice] = useState<any | null>(null);
   const [services, setServices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showTotalPrice, setShowTotalPrice] = useState(false)
+  const [showTotalPrice, setShowTotalPrice] = useState(false);
+
+  // حالت‌های جدید برای قیمت دستی
+  const [manualPriceModalVisible, setManualPriceModalVisible] = useState(false);
+  const [manualPrice, setManualPrice] = useState('');
+  const [finalTotalPrice, setFinalTotalPrice] = useState(0);
+  const [priceCalculationMode, setPriceCalculationMode] = useState<'auto' | 'manual'>('auto');
 
   const loadInvoice = async () => {
     try {
       setLoading(true);
       const data = await FetchDocument(id);
-
       setInvoice(data.invoice)
       setServices(data.services)
     } catch (err: any) {
@@ -39,20 +47,56 @@ export default function InvoicePage() {
 
   useEffect(() => {
     loadInvoice();
-    Alert.alert(
-      'نمایش قیمت کل',
-      'ایا میخواهید قیمت کل در این فاکتور درج شود ؟',
-      [
-        { text: 'انصراف', style: 'cancel' },
-        {
-          text: 'بله', style: 'destructive',
-          onPress: () => {
-            setShowTotalPrice(true);
-          }
-        }
-      ]
-    )
   }, []);
+
+  // نمایش دیالوگ بعد از لود شدن اطلاعات
+  useEffect(() => {
+    if (!loading && invoice) {
+      setTimeout(() => {
+        Alert.alert(
+          'انتخاب روش محاسبه قیمت کل',
+          'لطفاً روش محاسبه قیمت کل فاکتور را انتخاب کنید:',
+          [
+            {
+              text: 'انصراف',
+              style: 'cancel',
+              onPress: () => {
+                setShowTotalPrice(false);
+              }
+            },
+            {
+              text: 'محاسبه خودکار',
+              style: 'default',
+              onPress: () => {
+                setPriceCalculationMode('auto');
+                setShowTotalPrice(true);
+                const total = calculateTotal();
+                setFinalTotalPrice(total);
+              }
+            },
+            {
+              text: 'ورود دستی',
+              style: 'destructive',
+              onPress: () => {
+                setPriceCalculationMode('manual');
+                setShowTotalPrice(true);
+                setManualPriceModalVisible(true);
+              }
+            }
+          ]
+        );
+      }, 500);
+    }
+  }, [loading, invoice]);
+
+  if (!fontsLoaded) {
+    return (
+      <SafeAreaView style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#FF6B6B" />
+        <Text style={styles.loadingText}>در حال دریافت اطلاعات...</Text>
+      </SafeAreaView>
+    )
+  }
 
   const captureImage = async (ref: React.RefObject<ViewShot>) => {
     if (!ref.current) return;
@@ -90,7 +134,6 @@ export default function InvoicePage() {
     }
   };
 
-  // تابع جدید برای اشتراک‌گذاری فقط جدول
   const shareRawInvoice = async () => {
     try {
       const capturedTable = await captureImage(tableViewShotRef);
@@ -108,13 +151,58 @@ export default function InvoicePage() {
     }
   };
 
+  const saveToGallery = async () => {
+    try {
+      const { status } = await MediaLibrary.requestPermissionsAsync(true);
+      if (status !== 'granted') {
+        Alert.alert("دسترسی غیرمجاز", "لطفاً برای ذخیره‌سازی تصاویر مجوز دهید"); return;
+      }
+      const uri = await captureImage(viewShotRef);
+      if (!uri) {
+        Alert.alert('خطا', 'امکان ثبت تصویر وجود ندارد، لطفاً دوباره تلاش کنید');
+        return;
+      }
+      await MediaLibrary.saveToLibraryAsync(uri);
+      Alert.alert('موفق', 'فاکتور با موفقیت در گالری ذخیره شد.');
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Something went wrong while saving');
+    }
+  };
+
   const calculateRemaining = () => {
     if (!invoice) return 0;
-
-    const total = calculateTotal();
+    const total = priceCalculationMode === 'manual' ? finalTotalPrice : calculateTotal();
     const paid = invoice.paid_amount || 0;
-    return total - paid
-  }
+    return total - paid;
+  };
+
+  // تابع برای تبدیل عدد به فرمت فارسی با کاما
+  const formatNumber = (num: number): string => {
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  };
+
+  // تابع برای ذخیره قیمت دستی - اصلاح کامل
+  const handleManualPriceSubmit = () => {
+    // حذف همه کاماها و کاراکترهای غیرعددی
+    const cleanPrice = manualPrice.replace(/,/g, '').replace(/\s/g, '');
+
+    if (cleanPrice === '') {
+      Alert.alert('خطا', 'لطفاً یک عدد معتبر وارد کنید');
+      return;
+    }
+
+    const price = Number(cleanPrice);
+
+    if (isNaN(price) || price <= 0) {
+      Alert.alert('خطا', 'لطفاً یک عدد معتبر بزرگتر از صفر وارد کنید');
+      return;
+    }
+
+    setFinalTotalPrice(price);
+    setManualPriceModalVisible(false);
+    setShowTotalPrice(true);
+    setManualPrice(''); // پاک کردن فیلد بعد از تایید
+  };
 
   const remaningAmount = calculateRemaining();
 
@@ -138,7 +226,76 @@ export default function InvoicePage() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#f8fafc' }} >
       <View style={styles.main}>
-        {/* ویو اصلی با هدر و فوتر */}
+        {/* مودال ورود قیمت دستی - اصلاح کامل */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={manualPriceModalVisible}
+          onRequestClose={() => {
+            setManualPriceModalVisible(false);
+            setShowTotalPrice(false);
+            setManualPrice(''); // پاک کردن فیلد هنگام بسته شدن
+          }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>ورود قیمت کل به صورت دستی</Text>
+              <Text style={styles.modalSubtitle}>لطفاً مبلغ کل فاکتور را به تومان وارد کنید:</Text>
+
+              <TextInput
+                style={styles.modalInput}
+                placeholder="مبلغ را وارد کنید"
+                keyboardType="numeric"
+                value={manualPrice}
+                onChangeText={(text) => {
+                  // حذف همه کاراکترهای غیرعددی
+                  const numbersOnly = text.replace(/[^0-9]/g, '');
+
+                  if (numbersOnly === '') {
+                    setManualPrice('');
+                    return;
+                  }
+
+                  // تبدیل به عدد
+                  const number = parseInt(numbersOnly, 10);
+
+                  if (!isNaN(number) && number > 0) {
+                    // فرمت کردن با کاما
+                    const formatted = formatNumber(number);
+                    setManualPrice(formatted);
+                  } else if (numbersOnly === '0') {
+                    setManualPrice('0');
+                  }
+                }}
+                textAlign="center"
+                fontFamily="Vazirmatn"
+                autoFocus={true}
+                returnKeyType="done"
+                onSubmitEditing={handleManualPriceSubmit}
+              />
+
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalCancelButton]}
+                  onPress={() => {
+                    setManualPriceModalVisible(false);
+                    setShowTotalPrice(false);
+                    setManualPrice(''); // پاک کردن فیلد
+                  }}
+                >
+                  <Text style={styles.modalButtonText}>انصراف</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalConfirmButton]}
+                  onPress={handleManualPriceSubmit}
+                >
+                  <Text style={[styles.modalButtonText, { color: '#fff' }]}>تایید</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
         <ViewShot ref={viewShotRef} options={{ format: "jpg", quality: 1 }} style={{ backgroundColor: 'white' }} >
           <View style={styles.header}>
             <Image
@@ -151,19 +308,18 @@ export default function InvoicePage() {
             />
           </View>
           <ViewShot ref={tableViewShotRef} options={{ format: "jpg", quality: 1 }} style={{ backgroundColor: 'white' }}>
-            {/* بخش شماره فاکتور با قابلیت نمایش پیش‌فاکتور */}
             <View style={styles.invoice_number_container}>
-              {invoice.document_type === 'preinvoice' && (
+              {invoice?.document_type === 'preinvoice' && (
                 <View style={styles.preinvoice_badge}>
-                  <Text style={styles.preinvoice_text}>پیش فاکتور</Text>
+                  <Text style={styles.preinvoice_text} >پیش فاکتور</Text>
                 </View>
               )}
               <View style={styles.invoice_number}>
                 <Text style={styles.input_text}>
-                  {invoice.invoice_number}
+                  {invoice?.invoice_number}
                 </Text>
                 <Text style={styles.invoice_number_text}>
-                  شماره فاکتور
+                  شماره فاکتور :
                 </Text>
               </View>
             </View>
@@ -177,25 +333,20 @@ export default function InvoicePage() {
               >
                 <Text style={styles.name_customer_text} >صورتحساب آقای/شرکت:</Text>
               </LinearGradient>
-              <Text style={styles.customer_name_text} >{invoice.full_name}</Text>
-              <Text style={styles.date} >تاریخ: {invoice.created_at}</Text>
+              <Text style={styles.customer_name_text} >{invoice?.full_name}</Text>
+              <Text style={styles.date} >تاریخ: {invoice?.created_at}</Text>
             </View>
 
-            {/* جدول با رفرنس جداگانه */}
-
             <ScrollView contentContainerStyle={styles.container}>
-              {/* جدول */}
               <View style={styles.table}>
-                {/* هدر */}
                 <View style={styles.tableRow}>
-                  <Text style={[styles.cell, styles.headerCell, { flex: 1 }]}>ردیف</Text>
-                  <Text style={[styles.cell, styles.headerCell, { flex: 3.8 }]}>خدمات</Text>
-                  <Text style={[styles.cell, styles.headerCell, { flex: 1 }]}>تعداد</Text>
-                  <Text style={[styles.cell, styles.headerCell, { flex: 1.7 }]}>قیمت واحد</Text>
-                  <Text style={[styles.cell, styles.headerCell, { flex: 3.5 }]}>مبلغ کل (تومان)</Text>
+                  <Text style={[styles.cell, styles.headerCell, { flex: 1, fontFamily: 'Vazirmatn' }]}>ردیف</Text>
+                  <Text style={[styles.cell, styles.headerCell, { flex: 3.8, fontFamily: 'Vazirmatn' }]}>خدمات</Text>
+                  <Text style={[styles.cell, styles.headerCell, { flex: 1, fontFamily: 'Vazirmatn' }]}>تعداد</Text>
+                  <Text style={[styles.cell, styles.headerCell, { flex: 1.7, fontFamily: 'Vazirmatn' }]}>قیمت واحد</Text>
+                  <Text style={[styles.cell, styles.headerCell, { flex: 3.5, fontFamily: 'Vazirmatn' }]}>مبلغ کل (تومان)</Text>
                 </View>
 
-                {/* ردیف‌ها */}
                 {services.length === 0 ? (
                   <View style={styles.emptyServices}>
                     <Ionicons name="list" size={48} color="#cbd5e1" />
@@ -249,19 +400,18 @@ export default function InvoicePage() {
                         </View>
                         <Text style={[styles.cell, { flex: 3.8, textAlign: 'center', paddingVertical: 1 }]}>{service.service}</Text>
                         <Text style={[styles.cell, { flex: 1, textAlign: 'center', paddingVertical: 2 }]}> {amount.toLocaleString('fa-IR')}</Text>
-                        <Text style={[styles.cell, { flex: 1.7, textAlign: 'center', paddingVertical: 2 }]}> {unitPrice.toLocaleString('fa-IR')}</Text>
+                        <Text style={[styles.cell, { flex: 1.7, textAlign: 'center', paddingVertical: 2, textAlignVertical: 'center', }]}> {unitPrice.toLocaleString('fa-IR')}</Text>
                         <Text style={[styles.cell, { flex: 3.5, textAlign: 'center', paddingVertical: 2 }]}>{total.toLocaleString('fa-IR')}</Text>
                       </View>
-                    );
+                    )
                   })
                 )}
               </View>
             </ScrollView>
 
-            {/* بخش‌هایی که داخل جدول هستند */}
             <View style={styles.amount_paid} >
               <Text style={styles.text_amount_paid}>
-                پرداخت شده:  {invoice.paid_amount.toLocaleString('fa-IR') + ' تومان'}
+                پرداخت شده:  {invoice?.paid_amount?.toLocaleString('fa-IR') || '0' + ' تومان'}
               </Text>
             </View>
 
@@ -293,53 +443,48 @@ export default function InvoicePage() {
                   </View>
                 </React.Fragment>)}
             </View>
-
-            <View style={styles.description}>
-              <Text style={styles.text_description}>توضیحات:  {invoice.description}</Text>
-              <Text style={styles.signature}> امضا کارفرما:</Text>
-
-
-
-              <View style={styles.stamp}>
-                <Text style={styles.signature_}>مهر و امضا مجری:</Text>
-                <Image source={require('../assets/images/ATA.png')}
-                  style={{
-                    width: '75',
-                    height: '23.5',
-                    marginTop: 6,
-
-                  }}
-                  resizeMode='"contain' />
-              </View>
-            </View>
-
           </ViewShot>
 
-          <View style={styles.fotter}>
+          <View style={styles.description}>
+            <Text style={styles.text_description}>توضیحات:  {invoice?.description}</Text>
+            <Text style={styles.signature}> امضا کارفرما:</Text>
 
+            <View style={styles.stamp}>
+              <Text style={styles.signature_}>مهر و امضا مجری:</Text>
+              <Image source={require('../assets/images/mohr-.png')}
+                style={{
+                  width: '75',
+                  height: '23.5',
+                  marginTop: 6,
+                }}
+                resizeMode='"contain' />
+            </View>
+          </View>
+
+          <View style={styles.fotter}>
             <Image
               source={require('../assets/images/footer.jpg')}
               style={{
                 width: '400',
                 height: '150',
-                marginTop: 5
-
+                marginTop: 11
               }}
               resizeMode='"contain'
             />
           </View>
-
         </ViewShot>
 
         <View style={styles.buttons}>
           <TouchableOpacity style={styles.floatingButton} onPress={shareInvoice} activeOpacity={0.8}>
             <Ionicons name='camera' size={15} color="#fff" />
-            <Text style={styles.floatingButtonText}>اشتراک‌ گذاری</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.floatingButton} onPress={shareRawInvoice} activeOpacity={0.8}>
             <Ionicons name='document-text' size={15} color="#fff" />
-            <Text style={styles.floatingButtonText}>اشتراک فاکتور خام</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.floatingButton} onPress={saveToGallery} activeOpacity={0.8}>
+            <Ionicons name="save-outline" size={15} color="#fff" />
           </TouchableOpacity>
         </View>
       </View >
@@ -357,7 +502,8 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 14,
     color: '#94a3b8',
-    textAlign: 'center'
+    textAlign: 'center',
+    fontFamily: 'Vazirmatn'
   },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f8fafc' },
   loadingText: { marginTop: 16, fontSize: 16, color: '#64748b' },
@@ -387,34 +533,35 @@ const styles = StyleSheet.create({
   preinvoice_text: {
     color: 'white',
     fontSize: 9,
-    fontWeight: 'bold',
     textAlign: 'center',
+    fontFamily: 'Vazirmatn'
   },
   invoice_number: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'space-between',
     width: '100%',
-    gap: 10
+    gap: 10,
+    fontFamily: 'Vazirmatn'
   },
   invoice_number_text: {
-    fontSize: 8,
-    fontWeight: '900',
+    fontSize: 9,
     color: '#333',
     textAlign: 'right',
     flex: 5,
+    fontFamily: 'Vazirmatn'
   },
   input_text: {
     borderWidth: 1,
     borderColor: 'gray',
     borderRadius: 6,
     fontSize: 7.8,
-    fontWeight: '900',
     textAlign: 'center',
     backgroundColor: '#fff',
     height: 25,
     width: 85,
-    textAlignVertical: 'center'
+    textAlignVertical: 'center',
+    fontFamily: 'Vazirmatn'
   },
   container: {
     padding: 6,
@@ -422,7 +569,7 @@ const styles = StyleSheet.create({
   },
   table: {
     minHeight: 200,
-    maxHeight: 320,
+    maxHeight: 340,
     backgroundColor: 'white'
   },
   tableRow: {
@@ -438,15 +585,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0.1,
     borderRadius: 6,
     width: 20,
-    fontSize: 8,
+    fontSize: 7.4,
     textAlign: 'center',
-    fontWeight: '900',
     minHeight: 20,
+    fontFamily: 'Vazirmatn'
   },
   headerCell: {
     backgroundColor: '#da1d1d',
     color: '#fff',
-    fontWeight: 'bold',
     borderWidth: 0,
     textAlign: 'center',
     textAlignVertical: 'center',
@@ -454,6 +600,7 @@ const styles = StyleSheet.create({
     width: 90,
     height: 20,
     fontSize: 9,
+    fontFamily: 'Vazirmatn'
   },
   information: {
     marginTop: 7,
@@ -468,18 +615,20 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 8,
     borderBottomLeftRadius: 40,
     borderTopLeftRadius: 30,
+    textAlignVertical: 'center'
   },
   date: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 8.3,
     position: 'absolute',
     left: 275,
     top: 3,
+    fontFamily: 'Vazirmatn',
+    alignItems: 'center',
+    textAlignVertical: 'center'
   },
   name_customer_text: {
     color: 'white',
     fontSize: 9,
-    fontWeight: '700',
     borderBottomRightRadius: 10,
     borderTopRightRadius: 10,
     width: 115,
@@ -491,31 +640,35 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     textAlignVertical: 'center',
     fontSize: 10,
-    fontWeight: '900',
+    fontFamily: 'Vazirmatn'
   },
   amount_paid: {
     backgroundColor: 'white',
     height: 21,
-    alignItems: 'center'
+    alignItems: 'center',
+    fontFamily: 'Vazirmatn',
+    textAlignVertical: 'center',
   },
   text_amount_paid: {
     borderWidth: 1,
     backgroundColor: 'white',
     borderRadius: 6,
-    fontSize: 8,
-    fontWeight: '900',
-    height: 18.6,
+    fontSize: 7,
+    height: 18.8,
     width: 192,
     marginLeft: 10,
     borderColor: 'gray',
-    textAlignVertical: 'center',
-    padding: 2
+    padding: 0,
+    fontFamily: 'Vazirmatn',
+    textAlign: 'center',
+    textAlignVertical: 'center'
   },
   amounts: {
     backgroundColor: 'white',
     flexDirection: 'row',
     gap: 2,
-    height: 21
+    height: 21,
+    fontFamily: 'Vazirmatn'
   },
   amounts_by_word: {
     alignItems: 'center',
@@ -528,65 +681,67 @@ const styles = StyleSheet.create({
     borderColor: 'gray',
     padding: 1,
     textAlign: 'center',
-    width: 170
+    width: 170,
+    fontFamily: 'Vazirmatn'
   },
   text_by_word: {
     borderWidth: 1,
     backgroundColor: 'white',
     borderRadius: 6,
-    fontSize: 5.6,
-    fontWeight: '900',
+    fontSize: 6,
     minHeight: 19,
     maxHeight: 35,
     width: 192,
     marginLeft: 10,
     borderColor: 'gray',
     textAlignVertical: 'center',
-    padding: 2
+    padding: 2,
+    fontFamily: 'Vazirmatn',
   },
   text_by_number: {
-    fontSize: 9,
-    fontWeight: 'bold',
+    fontSize: 7,
+    fontFamily: 'Vazirmatn',
   },
   description: {
     flexDirection: 'row',
     marginLeft: 15,
-
+    fontFamily: 'Vazirmatn',
     marginTop: 6,
     gap: 5,
     minHeight: 45,
-    maxHeight: 50,
+    maxHeight: 130,
   },
   text_description: {
     fontSize: 7,
-    fontWeight: '900',
     minWidth: 100,
     maxWidth: 200,
+    fontFamily: 'Vazirmatn'
   },
   signature: {
     fontSize: 6.6,
-    fontWeight: '900',
+    fontFamily: 'Vazirmatn'
   },
   signature_: {
-    fontSize: 6.6,
+    fontSize: 6.5,
     marginLeft: 40,
-    fontWeight: '900',
-    height: 10,
-
+    fontFamily: 'Vazirmatn',
+    height: 14,
   },
   fotter: {
     marginLeft: -17,
     backgroundColor: 'white'
   },
   buttons: {
-    flexDirection: 'row'
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center'
   },
   floatingButton: {
-    backgroundColor: 'black',
+    backgroundColor: '#a70101',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
+    paddingVertical: 8,
     borderRadius: 29,
     gap: 4,
     marginHorizontal: 10,
@@ -597,20 +752,90 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 5,
-    width: '45%',
+    width: '28%',
     alignSelf: 'center',
   },
   floatingButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'Vazirmatn'
   },
   stamp: {
     alignItems: 'flex-end',
-    marginRight: 10,
+    marginRight: 14,
     height: 44,
-
   },
-
-
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 20,
+    width: '85%',
+    maxWidth: 400,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: '#333',
+    fontFamily: 'Vazirmatn'
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 20,
+    textAlign: 'center',
+    fontFamily: 'Vazirmatn'
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 18,
+    width: '100%',
+    marginBottom: 20,
+    textAlign: 'center',
+    fontFamily: 'Vazirmatn',
+    backgroundColor: '#f9f9f9'
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    gap: 10,
+  },
+  modalButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    minWidth: 80,
+    alignItems: 'center',
+    flex: 1,
+  },
+  modalCancelButton: {
+    backgroundColor: '#f0f0f0',
+  },
+  modalConfirmButton: {
+    backgroundColor: '#a70101',
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: 'Vazirmatn'
+  },
 });

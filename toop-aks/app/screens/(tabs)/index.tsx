@@ -2,22 +2,24 @@ import { Text, View, StyleSheet, TouchableOpacity, Alert, Modal, ScrollView, Act
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
-import { CreateTables } from '@/app/database/init'
-import moment from "moment-jalaali";
-import 'moment/locale/fa';
+import { CreateTables } from '@/app/database/init';
+// Use moment-jalaali only (it includes moment)
+import moment from 'moment-jalaali';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { FetchData } from '@/app/database/services/get-data';
 import ActionButton from '@/app/components/buttons';
 import { FilterByType } from '@/app/components/buttons';
-import 'moment/locale/fa';
 import { I18nManager } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage'
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // فعال کردن RTL
 I18nManager.forceRTL(true);
 
+// Initialize moment with Persian locale
+moment.loadPersian({ usePersianDigits: true });
+
 export default function Index() {
+
   const [data, setData] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedType, setSelectedType] = useState<'all' | 'invoice' | 'preinvoice'>('all');
@@ -25,6 +27,8 @@ export default function Index() {
   const [selectedAction, setSelectedAction] = useState<string | null>(null);
   const [showTableModal, setShowTableModal] = useState(false);
   const [dbInit, setDbInit] = useState(false)
+
+
 
   const initApp = async () => {
     try {
@@ -95,6 +99,7 @@ export default function Index() {
     // Filter by type
     if (selectedType === 'invoice' && item.document_type !== 'invoice') return false;
     if (selectedType === 'preinvoice' && item.document_type !== 'preinvoice') return false;
+
 
     // Filter by status
     if (selectedStatus !== 'all' && item.status !== selectedStatus) return false;
@@ -428,17 +433,17 @@ function TableModal({ data, selectedType, selectedStatus, onClose }: any) {
                   <View style={modalStyles.actionButtons}>
                     <TouchableOpacity
                       style={[modalStyles.actionButton, modalStyles.viewButton]}
-                      onPress={() => router.push({ pathname: '/detail-page/detail', params: { id: item.id } })}
+                      onPress={() => router.push({ pathname: '/screens/detail', params: { id: item.id } })}
                     >
-                      <Ionicons name="eye-outline" size={13} color="#fff" />
+                      <Ionicons name="create-outline" size={13} color="#fff" />
                       <Text style={modalStyles.actionButtonText}>ویرایش</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                       style={[modalStyles.actionButton, modalStyles.editButton]}
-                      onPress={() => router.push({ pathname: '/invoice-view', params: { id: item.id, mode: 'edit' } })}
+                      onPress={() => router.push({ pathname: '/screens/invoice-view', params: { id: item.id, mode: 'edit' } })}
                     >
-                      <Ionicons name="create-outline" size={13} color="#fff" />
+                      <Ionicons name="eye-outline" size={13} color="#fff" />
                       <Text style={modalStyles.actionButtonText}>مشاهده</Text>
                     </TouchableOpacity>
                   </View>

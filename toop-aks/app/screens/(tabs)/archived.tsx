@@ -3,7 +3,6 @@ import { router, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
 import moment from 'moment-jalaali';
-import 'moment/locale/fa';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { FetchData } from '@/app/database/services/get-data';
 import { I18nManager } from 'react-native';
@@ -390,15 +389,15 @@ function TableModal({ data, selectedType, selectedStatus, onClose, onDeleteSuces
                       style={[modalStyles.actionButton, modalStyles.viewButton]}
                       onPress={() => handleDeleteInvoice(item.id)}
                     >
-                      <Ionicons name="eye-outline" size={13} color="#fff" />
+                      <Ionicons name="trash-outline" size={13} color="#fff" />
                       <Text style={modalStyles.actionButtonText}>حذف</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                       style={[modalStyles.actionButton, modalStyles.editButton]}
-                      onPress={() => router.push({ pathname: '/invoice-view', params: { id: item.id, mode: 'edit' } })}
+                      onPress={() => router.push({ pathname: '/screens/invoice-view', params: { id: item.id, mode: 'edit' } })}
                     >
-                      <Ionicons name="create-outline" size={13} color="#fff" />
+                      <Ionicons name="eye-outline" size={13} color="#fff" />
                       <Text style={modalStyles.actionButtonText}>مشاهده</Text>
                     </TouchableOpacity>
                   </View>

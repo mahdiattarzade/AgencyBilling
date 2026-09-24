@@ -1,23 +1,36 @@
 {
   "expo": {
     "name": "Toop Aks",
-    "icon": "./assets/images/icon.png",
+    "icon": "./app/assets/images/icon.png",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "extra": {
       "eas": {
-        "projectId": "b5c3182b-61aa-4e94-ab51-4e9e467200b3"
+        "projectId": "02ffc10c-026e-4e41-9d25-a20a09ef7858"
       }
     },
     "android": {
       "package": "com.amirattar.app",
       "versionCode": 1,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/icon.png",
+        "foregroundImage": "./app/assets/images/icon.png",
         "backgroundColor": "#FFFFFF"
       }
     },
-    "owner": "amirattar"
+    "owner": "hasanattars-team",
+    "plugins": [
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow Toop Aks to access your photos to save invoices to your gallery.",
+          "savePhotosPermission": "Allow saving photos to your gallery",
+          "isAccessMediaLocation": true
+        }
+      ],
+      "expo-font",
+      "expo-router",
+      "expo-web-browser"
+    ]
   }
 }
